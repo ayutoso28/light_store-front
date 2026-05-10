@@ -1,15 +1,25 @@
+import { useEffect } from 'react';
 import { Link, Navigate, useLocation } from 'react-router-dom';
 import { formatPrice } from '../data/products';
-import { useAppSelector } from '../store/hooks';
-import { selectCurrentOrder } from '../store/ordersSlice';
+import { clearCart } from '../store/cartSlice';
+import { useAppDispatch, useAppSelector } from '../store/hooks';
+import { selectCurrentOrder, selectRecentOrders } from '../store/ordersSlice';
 
 const DELIVERY_LABEL = { courier: 'Курьер', pickup: 'Самовывоз' };
 const PAYMENT_LABEL = { online: 'Картой онлайн', cash: 'При получении' };
 
 export default function OrderConfirmationPage() {
+  const dispatch = useAppDispatch();
   const { state } = useLocation();
   const currentOrder = useAppSelector(selectCurrentOrder);
-  const order = state?.order || currentOrder;
+  const recentOrders = useAppSelector(selectRecentOrders);
+  const order = state?.order || currentOrder || recentOrders[0];
+
+  useEffect(() => {
+    if (order) {
+      dispatch(clearCart());
+    }
+  }, [dispatch, order]);
 
   if (!order) {
     return <Navigate to="/" replace />;

@@ -1,9 +1,11 @@
 import { createSlice } from '@reduxjs/toolkit';
 
-const CART_STORAGE_KEY = 'svetomir_cart';
+const CART_STORAGE_KEY = 'svetomir_cart_v2';
+const LEGACY_CART_STORAGE_KEY = 'svetomir_cart';
 
 export function loadCartItems() {
   try {
+    localStorage.removeItem(LEGACY_CART_STORAGE_KEY);
     const raw = localStorage.getItem(CART_STORAGE_KEY);
     return raw ? JSON.parse(raw) : [];
   } catch {

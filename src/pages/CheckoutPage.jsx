@@ -3,7 +3,6 @@ import { Navigate, useNavigate } from 'react-router-dom';
 import { formatPrice } from '../data/products';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import {
-  clearCart,
   selectCartItems,
   selectCartTotalPrice,
 } from '../store/cartSlice';
@@ -98,7 +97,6 @@ export default function CheckoutPage() {
           deliveryPrice: DELIVERY_PRICE[form.delivery],
         },
       })).unwrap();
-      dispatch(clearCart());
       navigate('/order-confirmation', { state: { order } });
     } catch {
       // Detailed API error is rendered from Redux state in the summary block.
