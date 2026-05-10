@@ -1,9 +1,17 @@
 import { Link } from 'react-router-dom';
-import { useCart } from '../context/CartContext';
 import { formatPrice } from '../data/products';
+import { useAppDispatch, useAppSelector } from '../store/hooks';
+import {
+  removeFromCart,
+  selectCartItems,
+  selectCartTotalPrice,
+  updateQuantity,
+} from '../store/cartSlice';
 
 export default function CartPage() {
-  const { items, updateQuantity, removeItem, totalPrice } = useCart();
+  const dispatch = useAppDispatch();
+  const items = useAppSelector(selectCartItems);
+  const totalPrice = useAppSelector(selectCartTotalPrice);
 
   return (
     <div className="max-w-7xl mx-auto px-6 md:px-12 py-16 min-h-[calc(100vh-128px)]">
@@ -39,7 +47,11 @@ export default function CartPage() {
                     <td className="py-8 w-32">
                       <Link to={`/product/${product.id}`}>
                         <div className="relative aspect-square w-24 border border-outline-variant flex items-center justify-center bg-surface-container-low overflow-hidden placeholder-x">
-                          <span className="relative z-10 text-[0.6875rem] uppercase font-bold text-outline">Изображение</span>
+                          {product.mainImage ? (
+                            <img src={product.mainImage} alt={product.name} className="h-full w-full object-contain p-3" />
+                          ) : (
+                            <span className="relative z-10 text-[0.6875rem] uppercase font-bold text-outline">Изображение</span>
+                          )}
                         </div>
                       </Link>
                     </td>
@@ -55,7 +67,7 @@ export default function CartPage() {
                     <td className="py-8">
                       <div className="flex items-center justify-center gap-4">
                         <button
-                          onClick={() => updateQuantity(product.id, quantity - 1)}
+                          onClick={() => dispatch(updateQuantity({ productId: product.id, quantity: quantity - 1 }))}
                           className="w-8 h-8 border border-outline flex items-center justify-center hover:bg-surface-container-highest transition-colors"
                           aria-label="Уменьшить"
                         >
@@ -63,7 +75,8 @@ export default function CartPage() {
                         </button>
                         <span className="font-bold text-lg min-w-[20px] text-center">{quantity}</span>
                         <button
-                          onClick={() => updateQuantity(product.id, quantity + 1)}
+                          onClick={() => dispatch(updateQuantity({ productId: product.id, quantity: quantity + 1 }))}
+                          disabled={product.stockQuantity > 0 && quantity >= product.stockQuantity}
                           className="w-8 h-8 border border-outline flex items-center justify-center hover:bg-surface-container-highest transition-colors"
                           aria-label="Увеличить"
                         >
@@ -74,7 +87,7 @@ export default function CartPage() {
                     <td className="py-8 text-right font-bold">{formatPrice(product.price * quantity)}</td>
                     <td className="py-8 text-right">
                       <button
-                        onClick={() => removeItem(product.id)}
+                        onClick={() => dispatch(removeFromCart(product.id))}
                         className="p-2 text-outline hover:text-error transition-colors"
                         aria-label="Удалить"
                       >

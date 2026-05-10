@@ -1,13 +1,27 @@
 import { useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
-import { useCart } from '../context/CartContext';
 import { formatPrice } from '../data/products';
+import { useAppDispatch, useAppSelector } from '../store/hooks';
+import {
+  clearCart,
+  selectCartItems,
+  selectCartTotalPrice,
+} from '../store/cartSlice';
+import {
+  createOrder,
+  selectOrderCreateStatus,
+  selectOrderError,
+} from '../store/ordersSlice';
 
 const DELIVERY_PRICE = { courier: 500, pickup: 0 };
 
 export default function CheckoutPage() {
   const navigate = useNavigate();
-  const { items, totalPrice, clear } = useCart();
+  const dispatch = useAppDispatch();
+  const items = useAppSelector(selectCartItems);
+  const totalPrice = useAppSelector(selectCartTotalPrice);
+  const createStatus = useAppSelector(selectOrderCreateStatus);
+  const orderError = useAppSelector(selectOrderError);
 
   const [form, setForm] = useState({
     fullName: '',
@@ -28,41 +42,67 @@ export default function CheckoutPage() {
     setErrors((prev) => ({ ...prev, [field]: undefined }));
   };
 
+  const normalizePhone = (phone) => {
+    const cleaned = phone.trim().replace(/[^\d+]/g, '');
+    return cleaned.startsWith('+')
+      ? `+${cleaned.slice(1).replace(/\D/g, '')}`
+      : cleaned.replace(/\D/g, '');
+  };
+
   const validate = () => {
     const errs = {};
+    const phone = normalizePhone(form.phone);
     if (!form.fullName.trim()) errs.fullName = 'Укажите ФИО';
-    if (!form.phone.trim()) errs.phone = 'Укажите телефон';
+    if (!phone) errs.phone = 'Укажите телефон';
+    else if (!/^\+?\d{10,15}$/.test(phone)) errs.phone = 'Некорректный формат телефона';
     if (!form.email.trim()) errs.email = 'Укажите email';
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) errs.email = 'Некорректный email';
     if (form.delivery === 'courier' && !form.address.trim()) errs.address = 'Укажите адрес доставки';
     return errs;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     const errs = validate();
     if (Object.keys(errs).length) {
       setErrors(errs);
       return;
     }
-    const orderNumber = Math.floor(100000 + Math.random() * 900000);
-    const orderItems = items.map(({ product, quantity }) => ({
-      id: product.id,
-      name: product.name,
-      price: product.price,
-      quantity,
-    }));
-    const order = {
-      number: orderNumber,
-      createdAt: new Date().toISOString(),
-      items: orderItems,
-      itemsTotal: totalPrice,
-      deliveryPrice: DELIVERY_PRICE[form.delivery],
-      total: totalPrice + DELIVERY_PRICE[form.delivery],
-      customer: form,
+
+    const customer = {
+      fullName: form.fullName.trim(),
+      phone: normalizePhone(form.phone),
+      email: form.email.trim(),
+      address: form.delivery === 'courier' ? form.address.trim() : '',
+      delivery: form.delivery,
+      payment: form.payment,
     };
-    clear();
-    navigate('/order-confirmation', { state: { order } });
+    const body = {
+      customer_name: customer.fullName,
+      customer_email: customer.email,
+      customer_phone: customer.phone,
+      delivery_method: customer.delivery,
+      delivery_address: customer.address,
+      payment_method: customer.payment,
+      items: items.map(({ product, quantity }) => ({
+        product_id: product.id,
+        quantity,
+      })),
+    };
+
+    try {
+      const order = await dispatch(createOrder({
+        body,
+        meta: {
+          customer,
+          deliveryPrice: DELIVERY_PRICE[form.delivery],
+        },
+      })).unwrap();
+      dispatch(clearCart());
+      navigate('/order-confirmation', { state: { order } });
+    } catch {
+      // Detailed API error is rendered from Redux state in the summary block.
+    }
   };
 
   const deliveryPrice = DELIVERY_PRICE[form.delivery];
@@ -153,8 +193,8 @@ export default function CheckoutPage() {
               />
               <RadioCard
                 name="payment"
-                value="on-delivery"
-                checked={form.payment === 'on-delivery'}
+                value="cash"
+                checked={form.payment === 'cash'}
                 onChange={update('payment')}
                 title="ПРИ ПОЛУЧЕНИИ"
               />
@@ -170,7 +210,11 @@ export default function CheckoutPage() {
               {items.map(({ product, quantity }) => (
                 <div key={product.id} className="flex gap-4">
                   <div className="w-16 h-16 border border-outline-variant placeholder-x flex items-center justify-center flex-shrink-0 bg-surface-container">
-                    <span className="text-[0.5rem] font-bold uppercase text-outline">Изобр.</span>
+                    {product.mainImage ? (
+                      <img src={product.mainImage} alt={product.name} className="h-full w-full object-contain p-2" />
+                    ) : (
+                      <span className="text-[0.5rem] font-bold uppercase text-outline">Изобр.</span>
+                    )}
                   </div>
                   <div className="flex-grow">
                     <div className="text-[0.875rem] font-bold uppercase leading-tight">{product.name}</div>
@@ -200,10 +244,16 @@ export default function CheckoutPage() {
 
             <button
               type="submit"
+              disabled={createStatus === 'loading'}
               className="w-full bg-primary text-on-primary py-4 text-[0.875rem] font-black uppercase tracking-widest hover:bg-neutral-800 transition-all active:scale-95 duration-100"
             >
-              ПОДТВЕРДИТЬ ЗАКАЗ
+              {createStatus === 'loading' ? 'ОТПРАВЛЯЕМ ЗАКАЗ' : 'ПОДТВЕРДИТЬ ЗАКАЗ'}
             </button>
+            {orderError && (
+              <p className="mt-4 text-[0.75rem] text-error text-center leading-relaxed">
+                {orderError.message}
+              </p>
+            )}
             <p className="mt-4 text-[0.6875rem] text-outline text-center uppercase leading-relaxed">
               НАЖИМАЯ КНОПКУ, ВЫ СОГЛАШАЕТЕСЬ С УСЛОВИЯМИ ОФЕРТЫ И ПОЛИТИКОЙ КОНФИДЕНЦИАЛЬНОСТИ
             </p>

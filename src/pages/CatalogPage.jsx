@@ -1,7 +1,17 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { CATEGORIES, PRODUCTS } from '../data/products';
 import ProductCard from '../components/ProductCard';
+import { useAppDispatch, useAppSelector } from '../store/hooks';
+import {
+  fetchCategories,
+  fetchProducts,
+  selectCategories,
+  selectCategoriesError,
+  selectCategoriesStatus,
+  selectProducts,
+  selectProductsError,
+  selectProductsStatus,
+} from '../store/productsSlice';
 
 const PAGE_SIZE = 12;
 const PRICE_MAX_DEFAULT = 500;
@@ -14,7 +24,21 @@ const SORT_OPTIONS = [
   { id: 'popular', label: 'ПО ПОПУЛЯРНОСТИ' },
 ];
 
+const API_SORT = {
+  'price-asc': 'price_asc',
+  'price-desc': 'price_desc',
+  name: 'name_asc',
+  popular: 'popular',
+};
+
 export default function CatalogPage() {
+  const dispatch = useAppDispatch();
+  const categories = useAppSelector(selectCategories);
+  const products = useAppSelector(selectProducts);
+  const productsStatus = useAppSelector(selectProductsStatus);
+  const categoriesStatus = useAppSelector(selectCategoriesStatus);
+  const productsError = useAppSelector(selectProductsError);
+  const categoriesError = useAppSelector(selectCategoriesError);
   const [searchParams, setSearchParams] = useSearchParams();
   const initialCategory = searchParams.get('category');
 
@@ -26,17 +50,26 @@ export default function CatalogPage() {
   const [page, setPage] = useState(1);
 
   useEffect(() => {
-    const c = searchParams.get('category');
-    if (c && !selectedCategories.includes(c)) {
-      setSelectedCategories([c]);
+    if (categoriesStatus === 'idle') {
+      dispatch(fetchCategories());
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams]);
+  }, [categoriesStatus, dispatch]);
+
+  useEffect(() => {
+    dispatch(fetchProducts({
+      limit: 50,
+      max_price: maxPrice,
+      sort: API_SORT[sort],
+      category: selectedCategories.length === 1 ? selectedCategories[0] : undefined,
+    }));
+  }, [dispatch, maxPrice, selectedCategories, sort]);
 
   const toggleCategory = (id) => {
-    setSelectedCategories((prev) =>
-      prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]
-    );
+    setSelectedCategories((prev) => {
+      const next = prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id];
+      setSearchParams(next.length === 1 ? { category: next[0] } : {});
+      return next;
+    });
     setPage(1);
   };
 
@@ -49,7 +82,7 @@ export default function CatalogPage() {
   };
 
   const filtered = useMemo(() => {
-    let list = PRODUCTS.filter((p) => p.price <= maxPrice);
+    let list = products.filter((p) => p.price <= maxPrice);
     if (selectedCategories.length > 0) {
       list = list.filter((p) => selectedCategories.includes(p.category));
     }
@@ -64,13 +97,13 @@ export default function CatalogPage() {
         list = [...list].sort((a, b) => a.name.localeCompare(b.name));
         break;
       case 'popular':
-        list = [...list].sort((a, b) => Number(b.popular) - Number(a.popular));
+        list = [...list].sort((a, b) => a.stockQuantity - b.stockQuantity || a.id - b.id);
         break;
       default:
         break;
     }
     return list;
-  }, [selectedCategories, maxPrice, sort]);
+  }, [products, selectedCategories, maxPrice, sort]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
@@ -85,13 +118,19 @@ export default function CatalogPage() {
           <section>
             <h3 className="text-xs font-bold uppercase text-on-surface-variant mb-4">КАТЕГОРИИ</h3>
             <div className="flex flex-col gap-3">
-              {CATEGORIES.map((c) => (
+              {categoriesStatus === 'loading' && (
+                <div className="text-sm uppercase text-outline">Загрузка...</div>
+              )}
+              {categoriesStatus === 'failed' && (
+                <div className="text-sm text-error">{categoriesError?.message}</div>
+              )}
+              {categories.map((c) => (
                 <label key={c.id} className="flex items-center gap-3 cursor-pointer">
                   <input
                     type="checkbox"
                     className="w-4 h-4 rounded-none border-outline text-primary focus:ring-0"
-                    checked={selectedCategories.includes(c.id)}
-                    onChange={() => toggleCategory(c.id)}
+                    checked={selectedCategories.includes(c.slug)}
+                    onChange={() => toggleCategory(c.slug)}
                   />
                   <span className="text-sm uppercase">{c.name}</span>
                 </label>
@@ -133,7 +172,7 @@ export default function CatalogPage() {
             <span className="text-xs font-bold uppercase text-outline">СОРТИРОВКА:</span>
             <select
               value={sort}
-              onChange={(e) => setSort(e.target.value)}
+              onChange={(e) => { setSort(e.target.value); setPage(1); }}
               className="border-b border-outline bg-transparent text-sm uppercase py-1 pr-8 focus:outline-none focus:border-primary"
             >
               {SORT_OPTIONS.map((o) => (
@@ -145,7 +184,23 @@ export default function CatalogPage() {
           <Pagination current={currentPage} total={totalPages} onChange={setPage} />
         </div>
 
-        {pageItems.length === 0 ? (
+        {productsStatus === 'loading' ? (
+          <div className="py-24 text-center text-outline uppercase tracking-widest text-sm">
+            ЗАГРУЖАЕМ ТОВАРЫ
+          </div>
+        ) : productsStatus === 'failed' ? (
+          <div className="py-24 text-center">
+            <p className="text-error uppercase tracking-widest text-sm mb-6">
+              {productsError?.message || 'НЕ УДАЛОСЬ ЗАГРУЗИТЬ ТОВАРЫ'}
+            </p>
+            <button
+              onClick={() => dispatch(fetchProducts({ limit: 50 }))}
+              className="border border-outline px-8 py-3 text-xs font-bold uppercase hover:bg-surface-container-highest transition-colors"
+            >
+              Повторить
+            </button>
+          </div>
+        ) : pageItems.length === 0 ? (
           <div className="py-24 text-center text-outline uppercase tracking-widest text-sm">
             ТОВАРОВ НЕ НАЙДЕНО
           </div>

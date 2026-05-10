@@ -1,16 +1,44 @@
-# React + Vite
+# СветоМир — frontend интернет-магазина
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Пользовательская часть магазина лампочек на React + Vite.
 
-Currently, two official plugins are available:
+## Что реализовано
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- загрузка категорий и товаров из `products-service` через `fetch`;
+- карточка товара с актуальной ценой, остатком и добавлением в корзину;
+- корзина с изменением количества, удалением позиций и сохранением в `localStorage`;
+- оформление заказа через `orders-service`;
+- глобальное состояние на Redux Toolkit: `products`, `cart`, `orders`;
+- обработка loading/error-состояний для каталога, карточки товара и оформления заказа.
 
-## React Compiler
+## Запуск
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Сначала поднимите backend из соседней папки:
 
-## Expanding the ESLint configuration
+```bash
+cd ../light_store
+docker compose up -d --build
+```
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+Затем запустите frontend:
+
+```bash
+npm install
+npm run dev
+```
+
+По умолчанию frontend обращается к API:
+
+```env
+VITE_PRODUCTS_API_URL=http://localhost:3001/api/v1
+VITE_ORDERS_API_URL=http://localhost:3002/api/v1
+```
+
+Если сервисы запущены на других адресах, создайте `.env` рядом с `package.json` и переопределите эти переменные.
+
+## Проверки
+
+```bash
+npm run lint
+npm run build
+```

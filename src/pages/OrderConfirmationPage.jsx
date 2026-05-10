@@ -1,12 +1,15 @@
 import { Link, Navigate, useLocation } from 'react-router-dom';
 import { formatPrice } from '../data/products';
+import { useAppSelector } from '../store/hooks';
+import { selectCurrentOrder } from '../store/ordersSlice';
 
 const DELIVERY_LABEL = { courier: 'Курьер', pickup: 'Самовывоз' };
-const PAYMENT_LABEL = { online: 'Картой онлайн', 'on-delivery': 'При получении' };
+const PAYMENT_LABEL = { online: 'Картой онлайн', cash: 'При получении' };
 
 export default function OrderConfirmationPage() {
   const { state } = useLocation();
-  const order = state?.order;
+  const currentOrder = useAppSelector(selectCurrentOrder);
+  const order = state?.order || currentOrder;
 
   if (!order) {
     return <Navigate to="/" replace />;
@@ -21,8 +24,13 @@ export default function OrderConfirmationPage() {
           <span className="material-symbols-outlined text-3xl">check</span>
         </div>
         <h1 className="text-[2rem] md:text-[2.5rem] font-black uppercase tracking-tight text-center mb-4">
-          ЗАКАЗ ОФОРМЛЕН
+          ЗАКАЗ УСПЕШНО СОЗДАН
         </h1>
+        <div className="mb-8 border border-primary bg-surface-container-low px-6 py-4 text-center">
+          <p className="text-[0.875rem] font-bold uppercase tracking-widest">
+            Заказ успешно создан
+          </p>
+        </div>
         <p className="text-center text-on-surface-variant mb-8">
           Спасибо за покупку. Мы свяжемся с вами для подтверждения.
         </p>

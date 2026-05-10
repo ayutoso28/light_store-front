@@ -1,11 +1,12 @@
 import { NavLink, Link } from 'react-router-dom';
-import { useCart } from '../context/CartContext';
+import { useAppSelector } from '../store/hooks';
+import { selectCartTotalCount } from '../store/cartSlice';
 
 const navItem =
   'font-["Inter"] text-[0.875rem] uppercase tracking-wider px-2 py-1 transition-colors';
 
 export default function Header() {
-  const { totalCount } = useCart();
+  const totalCount = useAppSelector(selectCartTotalCount);
 
   return (
     <header className="flex justify-between items-center w-full px-6 md:px-12 h-16 bg-[#f9f9f9] border-b border-[#777777] sticky top-0 z-50">
